@@ -1,0 +1,98 @@
+
+    <script>
+        // Get reference to the drop area
+        const dropArea = document.getElementById("drop-area");
+
+        // Prevent default behaviors
+        ["dragenter", "dragover", "dragleave", "drop"].forEach((eventName) => {
+            dropArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Highlight the drop area when item is dragged over
+        ["dragenter", "dragover"].forEach((eventName) => {
+            dropArea.addEventListener(
+                eventName,
+                () => {
+                    dropArea.classList.add("hover");
+                },
+                false
+            );
+        });
+
+        // Remove highlight when item is dragged away
+        ["dragleave", "drop"].forEach((eventName) => {
+            dropArea.addEventListener(
+                eventName,
+                () => {
+                    dropArea.classList.remove("hover");
+                },
+                false
+            );
+        });
+
+        // Handle dropped files
+        dropArea.addEventListener("drop", handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            [...files].forEach((file) => {
+                if (file.type === "audio/wav") {
+                    convertToBase64(file);
+                } else {
+                    alert("Only WAV files are supported.");
+                }
+            });
+        }
+
+        function convertToBase64(file) {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onloadend = () => {
+                const base64String = reader.result.split(",")[1]; // Get the base64 string without the prefix
+                fetchAndCombine(base64String);
+            };
+        }
+
+        async function fetchAndCombine(base64String) {
+            try {
+                const startResponse = await fetch('data/start.txt');
+                const endResponse = await fetch('data/end.txt');
+
+                if (!startResponse.ok || !endResponse.ok) {
+                    throw new Error('Failed to fetch start or end text files');
+                }
+
+                const startText = await startResponse.text();
+                const endText = await endResponse.text();
+
+                const combinedText = startText + '"' + base64String + '"' + endText;
+
+                initiateDownload(combinedText, 'vital_file.vital', 'text/plain');
+            } catch (error) {
+                console.error('Error fetching text files:', error);
+            }
+        }
+
+        function initiateDownload(data, filename, type) {
+            const file = new Blob([data], { type: type });
+            const a = document.createElement("a"),
+                url = URL.createObjectURL(file);
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function () {
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            }, 0);
+        }
